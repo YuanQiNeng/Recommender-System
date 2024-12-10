@@ -7,12 +7,13 @@ class TreeNode:
         self.parent=parent
         self.child=[self]
         self.count=1
-    def find_child(self,item): #根据物品名称寻找该节点对应的子节点，若没有则返回None
+    def find_child(self,item): #Search for the corresponding child nodes of the node based on the item name, and return None if none are available
         for child in self.child:
             if child.item==item:
                 return child
         return None
-    def add_child(self,item): #根据物品名称添加子节点，如果物品对应的是自己的节点，则count加1。返回添加的节点类
+    def add_child(self,item): #Add child nodes based on the item name. 
+        #If the item corresponds to your own node, add 1 to the count. Return the added node class
         if item==self.item:
             self.count+=1
             return self
@@ -21,19 +22,19 @@ class TreeNode:
         return node
 class FPTree:
     def __init__(self,items_list,threshold,total_transaction_num):
-        self.threshold=threshold #支持度阈值
-        self.total_transaction_num=total_transaction_num #初始的项集数量
-        self.items_list=self.filter(items_list) #过滤支持度小于阈值的物品后的项集
-        self.root=TreeNode('root',None) #设置根节点
-        self.item_node=defaultdict(list) #该字典保存每个物品对应的节点TreeNode
+        self.threshold=threshold #Support threshold
+        self.total_transaction_num=total_transaction_num #Initial number of itemsets
+        self.items_list=self.filter(items_list) #The itemset after filtering items with support below the threshold
+        self.root=TreeNode('root',None) #Set root node
+        self.item_node=defaultdict(list) #This dictionary stores the TreeNode corresponding to each item
         self.item_node[None].append(self.root)
-        self.is_null=False #判断该树是不是空树（项集不为空）
-        if self.items_list and list(itertools.chain.from_iterable(self.items_list)): #如果不是空树，开始遍历每个项集构建树
+        self.is_null=False #Determine if the tree is an empty tree (the itemset is not empty)
+        if self.items_list and list(itertools.chain.from_iterable(self.items_list)): #If it's not an empty tree, start traversing each itemset to construct a tree
             for items in self.items_list:
                 self.build_tree(items)
         else:
             self.is_null=True
-        self.item2items=defaultdict(list) #该字典返回每个物品对应的关联物品列表
+        self.item2items=defaultdict(list) #This dictionary returns a list of associated items for each item
     def get_path(self,node:TreeNode): 
         items_list_path,nums=[],node.count
         while node is not self.root:
@@ -50,30 +51,29 @@ class FPTree:
                 res.extend(p)
         return res
     def filter(self,items_list:list[list[str]]):
-        items_list_flatten=list(itertools.chain.from_iterable(items_list)) #将二维项集展开为一维
+        items_list_flatten=list(itertools.chain.from_iterable(items_list)) #Expand the two-dimensional itemset into one dimension
         if not items_list_flatten:
             return None
         series=pd.Series(items_list_flatten).value_counts()
         con=series/self.total_transaction_num>=self.threshold
-        series=series[con] #保留支持度大于阈值的物品集合
+        series=series[con] #Retain the collection of items with support greater than the threshold
         for i,items in enumerate(items_list):
-            items_list[i]=sorted(list(set(items)&set(series.index))) #进行本地过滤
+            items_list[i]=sorted(list(set(items)&set(series.index))) #Perform local filtering
         return items_list
     def insert_tree(self,items,parent_node:TreeNode):
         first=items[0]
         node=parent_node.find_child(first) 
-        #再某节点上找到指定物品的子节点（也可能是父节点本身），
-        #如果存在则返回节点，否则返回None
+        #Find the child node (or possibly the parent node itself) of the specified item on a certain node,
+        #If it exists, return the node; otherwise, return None
         if node:
-            #如果节点存在，则次数加一
             node.count+=1
         else:
-            #否则创建一个新的节点并且储存
+            #Otherwise, create a new node and store it
             node=parent_node.add_child(first)
             self.item_node[first].append(node)
         if items[1:]:
-            #将项集的第二个物品插入节点中，
-            # 父节点为项集第一个物品对应的节点
+            #Insert the second item from the itemset into the node,
+            #The parent node is the node corresponding to the first item in the itemset
             self.insert_tree(items[1:],node)
     def build_tree(self,items):
         first=items[0]
@@ -83,7 +83,7 @@ class FPTree:
                 return 
         self.insert_tree(items,self.root)
     def _get_item_relation(self,tree1,chain):
-        #根据指定的物品生成条件树
+        #Generate condition tree based on specified items
         tree2=FPTree(tree1.get_items_due_path(chain[-1]),self.threshold,self.total_transaction_num)
         if tree2.is_null:
             return 
